@@ -1,0 +1,262 @@
+2026-01-05 10:02:05,200 - R-Yabot - INFO - ================================================================================
+2026-01-05 10:02:05,206 - R-Yabot - INFO - STEP 1: User Request
+2026-01-05 10:02:05,206 - R-Yabot - INFO - ================================================================================
+2026-01-05 10:02:05,206 - R-Yabot - INFO - Type: prompt | Status: in_progress
+2026-01-05 10:02:05,206 - R-Yabot - INFO - Data:
+{
+  "query": "List all opportunities assigned to Zameer in last 6 months",
+  "page": 1,
+  "target_task_id": null,
+  "date_format": "YYYY-MM-DD"
+}
+2026-01-05 10:02:05,206 - R-Yabot - INFO - ================================================================================
+2026-01-05 10:02:11,836 - R-Yabot - INFO - ================================================================================
+2026-01-05 10:02:11,836 - R-Yabot - INFO - STEP 2: Query CRM Data
+2026-01-05 10:02:11,836 - R-Yabot - INFO - ================================================================================
+2026-01-05 10:02:11,836 - R-Yabot - INFO - Type: tool_call | Status: in_progress
+2026-01-05 10:02:11,836 - R-Yabot - INFO - Data:
+{
+  "module": "Users",
+  "filters": {
+    "name": "Zameer"
+  },
+  "start": null,
+  "end": null,
+  "page": 1,
+  "iterate": false
+}
+2026-01-05 10:02:11,836 - R-Yabot - INFO - ================================================================================
+2026-01-05 10:02:11,836 - R-Yabot - INFO - Refreshing CRM access token
+2026-01-05 10:02:12,653 - R-Yabot - INFO - CRM token refreshed successfully (30 min cache)
+2026-01-05 10:02:12,653 - R-Yabot - INFO - ================================================================================
+2026-01-05 10:02:12,653 - R-Yabot - INFO - STEP 3: API Request Page 1
+2026-01-05 10:02:12,653 - R-Yabot - INFO - ================================================================================
+2026-01-05 10:02:12,660 - R-Yabot - INFO - Type: tool_call | Status: in_progress
+2026-01-05 10:02:12,660 - R-Yabot - INFO - Data:
+{
+  "url": "https://internal.simplecrmondemand.com/Api/V8/modules/Users/views/list?page%5Bnumber%5D=1&page%5Bsize%5D=1&filter%5Breset%5D%5Beq%5D=true&fields%5BUsers%5D=description%2Cfirst_name%2Creports_to_id%2Clast_name%2Creports_to_name%2Cname%2Cemployee_status%2Cstatus%2Cuser_name%2Cemail1%2Cid&sort=-date_entered&filter%5Bsort_column%5D%5Beq%5D=date_entered&filter%5Bsort_order%5D%5Beq%5D=desc&filter%5Bname%5D%5Beq%5D=Zameer"
+}
+2026-01-05 10:02:12,660 - R-Yabot - INFO - ================================================================================
+2026-01-05 10:02:13,403 - R-Yabot - INFO - ================================================================================
+2026-01-05 10:02:13,411 - R-Yabot - INFO - STEP 4: API Success
+2026-01-05 10:02:13,411 - R-Yabot - INFO - ================================================================================
+2026-01-05 10:02:13,411 - R-Yabot - INFO - Type: tool_response | Status: in_progress
+2026-01-05 10:02:13,411 - R-Yabot - INFO - Data:
+{
+  "total_records": 1
+}
+2026-01-05 10:02:13,411 - R-Yabot - INFO - ================================================================================
+2026-01-05 10:02:13,411 - R-Yabot - INFO - ================================================================================
+2026-01-05 10:02:13,411 - R-Yabot - INFO - STEP 5: Query CRM Data
+2026-01-05 10:02:13,411 - R-Yabot - INFO - ================================================================================
+2026-01-05 10:02:13,418 - R-Yabot - INFO - Type: tool_call | Status: in_progress
+2026-01-05 10:02:13,418 - R-Yabot - INFO - Data:
+{
+  "module": "Opportunities",
+  "filters": {
+    "date_entered": {
+      "operator": "between",
+      "start": "2025-07-05",
+      "end": "2026-01-05"
+    },
+    "assigned_user_id": "545010e2-6af1-3137-8eec-58a2f9b3387e"
+  },
+  "start": null,
+  "end": null,
+  "page": 1,
+  "iterate": false
+}
+2026-01-05 10:02:13,418 - R-Yabot - INFO - ================================================================================
+2026-01-05 10:02:13,420 - R-Yabot - INFO - ================================================================================
+2026-01-05 10:02:13,420 - R-Yabot - INFO - STEP 6: API Request Page 1
+2026-01-05 10:02:13,420 - R-Yabot - INFO - ================================================================================
+2026-01-05 10:02:13,420 - R-Yabot - INFO - Type: tool_call | Status: in_progress
+2026-01-05 10:02:13,420 - R-Yabot - INFO - Data:
+{
+  "url": "https://internal.simplecrmondemand.com/Api/V8/modules/Opportunities/views/list?page%5Bnumber%5D=1&page%5Bsize%5D=20&filter%5Breset%5D%5Beq%5D=true&fields%5BOpportunities%5D=description%2Camount%2Copportunity_stage_c%2Cname%2Caccount_id%2Caccount_name%2Cassigned_user_name%2Cassigned_user_id%2Cdate_closed%2Cid&sort=-date_entered&filter%5Bsort_column%5D%5Beq%5D=date_entered&filter%5Bsort_order%5D%5Beq%5D=desc&filter%5Bstart_range_date_entered%5D%5Beq%5D=2025-07-05&filter%5Bend_range_date_entered%5D%5Beq%5D=2026-01-05&filter%5Bdate_entered_range_choice%5D%5Boperator%5D=between&filter%5Bassigned_user_id%5D%5Beq%5D=545010e2-6af1-3137-8eec-58a2f9b3387e"
+}
+2026-01-05 10:02:13,420 - R-Yabot - INFO - ================================================================================
+2026-01-05 10:02:14,204 - R-Yabot - INFO - ================================================================================
+2026-01-05 10:02:14,204 - R-Yabot - INFO - STEP 7: API Success
+2026-01-05 10:02:14,204 - R-Yabot - INFO - ================================================================================
+2026-01-05 10:02:14,204 - R-Yabot - INFO - Type: tool_response | Status: in_progress
+2026-01-05 10:02:14,204 - R-Yabot - INFO - Data:
+{
+  "total_records": 20
+}
+2026-01-05 10:02:14,204 - R-Yabot - INFO - ================================================================================
+2026-01-05 10:02:14,204 - R-Yabot - INFO - ================================================================================
+2026-01-05 10:02:14,204 - R-Yabot - INFO - STEP 8: Query CRM Data
+2026-01-05 10:02:14,214 - R-Yabot - INFO - ================================================================================
+2026-01-05 10:02:14,214 - R-Yabot - INFO - Type: tool_call | Status: in_progress
+2026-01-05 10:02:14,214 - R-Yabot - INFO - Data:
+{
+  "module": "Opportunities",
+  "filters": {
+    "date_entered": {
+      "operator": "between",
+      "start": "2025-07-05",
+      "end": "2026-01-05"
+    },
+    "assigned_user_id": "545010e2-6af1-3137-8eec-58a2f9b3387e"
+  },
+  "start": null,
+  "end": null,
+  "page": 1,
+  "iterate": true
+}
+2026-01-05 10:02:14,214 - R-Yabot - INFO - ================================================================================
+2026-01-05 10:02:14,214 - R-Yabot - INFO - ================================================================================
+2026-01-05 10:02:14,214 - R-Yabot - INFO - STEP 9: API Request Page 1
+2026-01-05 10:02:14,214 - R-Yabot - INFO - ================================================================================
+2026-01-05 10:02:14,214 - R-Yabot - INFO - Type: tool_call | Status: in_progress
+2026-01-05 10:02:14,214 - R-Yabot - INFO - Data:
+{
+  "url": "https://internal.simplecrmondemand.com/Api/V8/modules/Opportunities/views/list?page%5Bnumber%5D=1&page%5Bsize%5D=20&filter%5Breset%5D%5Beq%5D=true&fields%5BOpportunities%5D=description%2Camount%2Copportunity_stage_c%2Cname%2Caccount_id%2Caccount_name%2Cassigned_user_name%2Cassigned_user_id%2Cdate_closed%2Cid&sort=-date_entered&filter%5Bsort_column%5D%5Beq%5D=date_entered&filter%5Bsort_order%5D%5Beq%5D=desc&filter%5Bstart_range_date_entered%5D%5Beq%5D=2025-07-05&filter%5Bend_range_date_entered%5D%5Beq%5D=2026-01-05&filter%5Bdate_entered_range_choice%5D%5Boperator%5D=between&filter%5Bassigned_user_id%5D%5Beq%5D=545010e2-6af1-3137-8eec-58a2f9b3387e"
+}
+2026-01-05 10:02:14,219 - R-Yabot - INFO - ================================================================================
+2026-01-05 10:02:16,566 - R-Yabot - INFO - ================================================================================
+2026-01-05 10:02:16,566 - R-Yabot - INFO - STEP 10: API Success
+2026-01-05 10:02:16,566 - R-Yabot - INFO - ================================================================================
+2026-01-05 10:02:16,566 - R-Yabot - INFO - Type: tool_response | Status: in_progress
+2026-01-05 10:02:16,569 - R-Yabot - INFO - Data:
+{
+  "total_records": 40
+}
+2026-01-05 10:02:16,569 - R-Yabot - INFO - ================================================================================
+2026-01-05 11:02:48,127 - R-Yabot - INFO - ================================================================================
+2026-01-05 11:02:48,128 - R-Yabot - INFO - STEP 1: User Request
+2026-01-05 11:02:48,128 - R-Yabot - INFO - ================================================================================
+2026-01-05 11:02:48,128 - R-Yabot - INFO - Type: prompt | Status: in_progress
+2026-01-05 11:02:48,129 - R-Yabot - INFO - Data:
+{
+  "query": "List all opportunities assigned to Zameer that were created or last updated in the last 6 months.",
+  "page": 1,
+  "target_task_id": null,
+  "date_format": "YYYY-MM-DD"
+}
+2026-01-05 11:02:48,129 - R-Yabot - INFO - ================================================================================
+2026-01-05 11:02:53,077 - R-Yabot - INFO - ================================================================================
+2026-01-05 11:02:53,077 - R-Yabot - INFO - STEP 2: Query CRM Data
+2026-01-05 11:02:53,078 - R-Yabot - INFO - ================================================================================
+2026-01-05 11:02:53,078 - R-Yabot - INFO - Type: tool_call | Status: in_progress
+2026-01-05 11:02:53,078 - R-Yabot - INFO - Data:
+{
+  "module": "Users",
+  "filters": {
+    "name": "Zameer"
+  },
+  "start": null,
+  "end": null,
+  "page": 1,
+  "iterate": false
+}
+2026-01-05 11:02:53,078 - R-Yabot - INFO - ================================================================================
+2026-01-05 11:02:53,080 - R-Yabot - INFO - Refreshing CRM access token
+2026-01-05 11:02:53,974 - R-Yabot - INFO - CRM token refreshed successfully (30 min cache)
+2026-01-05 11:02:53,980 - R-Yabot - INFO - ================================================================================
+2026-01-05 11:02:53,981 - R-Yabot - INFO - STEP 3: API Request Page 1
+2026-01-05 11:02:53,982 - R-Yabot - INFO - ================================================================================
+2026-01-05 11:02:53,982 - R-Yabot - INFO - Type: tool_call | Status: in_progress
+2026-01-05 11:02:53,982 - R-Yabot - INFO - Data:
+{
+  "url": "https://internal.simplecrmondemand.com/Api/V8/modules/Users/views/list?page%5Bnumber%5D=1&page%5Bsize%5D=1&filter%5Breset%5D%5Beq%5D=true&fields%5BUsers%5D=id%2Creports_to_name%2Cname%2Cdescription%2Cemail1%2Creports_to_id%2Cuser_name%2Cemployee_status%2Cfirst_name%2Clast_name%2Cstatus&sort=-date_entered&filter%5Bsort_column%5D%5Beq%5D=date_entered&filter%5Bsort_order%5D%5Beq%5D=desc&filter%5Bname%5D%5Beq%5D=Zameer"
+}
+2026-01-05 11:02:53,983 - R-Yabot - INFO - ================================================================================
+2026-01-05 11:02:54,816 - R-Yabot - INFO - ================================================================================
+2026-01-05 11:02:54,816 - R-Yabot - INFO - STEP 4: API Success
+2026-01-05 11:02:54,817 - R-Yabot - INFO - ================================================================================
+2026-01-05 11:02:54,817 - R-Yabot - INFO - Type: tool_response | Status: in_progress
+2026-01-05 11:02:54,817 - R-Yabot - INFO - Data:
+{
+  "total_records": 1
+}
+2026-01-05 11:02:54,818 - R-Yabot - INFO - ================================================================================
+2026-01-05 11:02:54,822 - R-Yabot - INFO - ================================================================================
+2026-01-05 11:02:54,823 - R-Yabot - INFO - STEP 5: Query CRM Data
+2026-01-05 11:02:54,823 - R-Yabot - INFO - ================================================================================
+2026-01-05 11:02:54,823 - R-Yabot - INFO - Type: tool_call | Status: in_progress
+2026-01-05 11:02:54,824 - R-Yabot - INFO - Data:
+{
+  "module": "Opportunities",
+  "filters": {
+    "date_entered": {
+      "operator": "between",
+      "start": "2025-07-05",
+      "end": "2026-01-05"
+    },
+    "date_modified": {
+      "operator": "between",
+      "start": "2025-07-05",
+      "end": "2026-01-05"
+    },
+    "assigned_user_id": "545010e2-6af1-3137-8eec-58a2f9b3387e"
+  },
+  "start": null,
+  "end": null,
+  "page": 1,
+  "iterate": false
+}
+2026-01-05 11:02:54,824 - R-Yabot - INFO - ================================================================================
+2026-01-05 11:02:54,825 - R-Yabot - INFO - ================================================================================
+2026-01-05 11:02:54,825 - R-Yabot - INFO - STEP 6: API Request Page 1
+2026-01-05 11:02:54,826 - R-Yabot - INFO - ================================================================================
+2026-01-05 11:02:54,826 - R-Yabot - INFO - Type: tool_call | Status: in_progress
+2026-01-05 11:02:54,826 - R-Yabot - INFO - Data:
+{
+  "url": "https://internal.simplecrmondemand.com/Api/V8/modules/Opportunities/views/list?page%5Bnumber%5D=1&page%5Bsize%5D=20&filter%5Breset%5D%5Beq%5D=true&fields%5BOpportunities%5D=id%2Copportunity_stage_c%2Cname%2Cdescription%2Caccount_name%2Cdate_closed%2Cassigned_user_id%2Cassigned_user_name%2Caccount_id%2Camount&sort=-date_entered&filter%5Bsort_column%5D%5Beq%5D=date_entered&filter%5Bsort_order%5D%5Beq%5D=desc&filter%5Bstart_range_date_entered%5D%5Beq%5D=2025-07-05&filter%5Bend_range_date_entered%5D%5Beq%5D=2026-01-05&filter%5Bdate_entered_range_choice%5D%5Boperator%5D=between&filter%5Bstart_range_date_modified%5D%5Beq%5D=2025-07-05&filter%5Bend_range_date_modified%5D%5Beq%5D=2026-01-05&filter%5Bdate_modified_range_choice%5D%5Boperator%5D=between&filter%5Bassigned_user_id%5D%5Beq%5D=545010e2-6af1-3137-8eec-58a2f9b3387e"
+}
+2026-01-05 11:02:54,826 - R-Yabot - INFO - ================================================================================
+2026-01-05 11:02:55,733 - R-Yabot - INFO - ================================================================================
+2026-01-05 11:02:55,733 - R-Yabot - INFO - STEP 7: API Success
+2026-01-05 11:02:55,733 - R-Yabot - INFO - ================================================================================
+2026-01-05 11:02:55,733 - R-Yabot - INFO - Type: tool_response | Status: in_progress
+2026-01-05 11:02:55,734 - R-Yabot - INFO - Data:
+{
+  "total_records": 20
+}
+2026-01-05 11:02:55,734 - R-Yabot - INFO - ================================================================================
+2026-01-05 11:02:55,738 - R-Yabot - INFO - ================================================================================
+2026-01-05 11:02:55,738 - R-Yabot - INFO - STEP 8: Query CRM Data
+2026-01-05 11:02:55,738 - R-Yabot - INFO - ================================================================================
+2026-01-05 11:02:55,738 - R-Yabot - INFO - Type: tool_call | Status: in_progress
+2026-01-05 11:02:55,739 - R-Yabot - INFO - Data:
+{
+  "module": "Opportunities",
+  "filters": {
+    "date_entered": {
+      "operator": "between",
+      "start": "2025-07-05",
+      "end": "2026-01-05"
+    },
+    "date_modified": {
+      "operator": "between",
+      "start": "2025-07-05",
+      "end": "2026-01-05"
+    },
+    "assigned_user_id": "545010e2-6af1-3137-8eec-58a2f9b3387e"
+  },
+  "start": null,
+  "end": null,
+  "page": 1,
+  "iterate": true
+}
+2026-01-05 11:02:55,739 - R-Yabot - INFO - ================================================================================
+2026-01-05 11:02:55,739 - R-Yabot - INFO - ================================================================================
+2026-01-05 11:02:55,740 - R-Yabot - INFO - STEP 9: API Request Page 1
+2026-01-05 11:02:55,740 - R-Yabot - INFO - ================================================================================
+2026-01-05 11:02:55,740 - R-Yabot - INFO - Type: tool_call | Status: in_progress
+2026-01-05 11:02:55,740 - R-Yabot - INFO - Data:
+{
+  "url": "https://internal.simplecrmondemand.com/Api/V8/modules/Opportunities/views/list?page%5Bnumber%5D=1&page%5Bsize%5D=20&filter%5Breset%5D%5Beq%5D=true&fields%5BOpportunities%5D=id%2Copportunity_stage_c%2Cname%2Cdescription%2Caccount_name%2Cdate_closed%2Cassigned_user_id%2Cassigned_user_name%2Caccount_id%2Camount&sort=-date_entered&filter%5Bsort_column%5D%5Beq%5D=date_entered&filter%5Bsort_order%5D%5Beq%5D=desc&filter%5Bstart_range_date_entered%5D%5Beq%5D=2025-07-05&filter%5Bend_range_date_entered%5D%5Beq%5D=2026-01-05&filter%5Bdate_entered_range_choice%5D%5Boperator%5D=between&filter%5Bstart_range_date_modified%5D%5Beq%5D=2025-07-05&filter%5Bend_range_date_modified%5D%5Beq%5D=2026-01-05&filter%5Bdate_modified_range_choice%5D%5Boperator%5D=between&filter%5Bassigned_user_id%5D%5Beq%5D=545010e2-6af1-3137-8eec-58a2f9b3387e"
+}
+2026-01-05 11:02:55,741 - R-Yabot - INFO - ================================================================================
+2026-01-05 11:02:58,307 - R-Yabot - INFO - ================================================================================
+2026-01-05 11:02:58,307 - R-Yabot - INFO - STEP 10: API Success
+2026-01-05 11:02:58,307 - R-Yabot - INFO - ================================================================================
+2026-01-05 11:02:58,307 - R-Yabot - INFO - Type: tool_response | Status: in_progress
+2026-01-05 11:02:58,309 - R-Yabot - INFO - Data:
+{
+  "total_records": 40
+}
+2026-01-05 11:02:58,310 - R-Yabot - INFO - ================================================================================
