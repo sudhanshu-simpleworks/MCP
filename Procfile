@@ -1,0 +1,1 @@
+web: fastmcp run crm_server.py:mcp --transport sse --port $PORT --host 0.0.0.0
