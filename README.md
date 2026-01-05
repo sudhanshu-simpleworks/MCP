@@ -1,0 +1,2 @@
+# MCP
+SimpleCRM MCP
