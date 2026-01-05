@@ -16,7 +16,7 @@ ENV_VARS = {
     "PATH": os.environ.get("PATH", "")
 }
 
-GEMINI_API_KEY = "AIzaSyBwtTzYuRdZ1oaNXACiFS5YwM4TYeLZeDc"
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 genai.configure(api_key=GEMINI_API_KEY)
 
 # =============================================================================
