@@ -12,7 +12,8 @@ from dotenv import load_dotenv
 env_path = os.path.join(project_root, ".env")
 load_dotenv(env_path, override=True) 
 
-from mcp.server.fastmcp import FastMCP
+# CHANGE: Import AuthSettings explicitly
+from mcp.server.fastmcp import FastMCP, AuthSettings
 from app.utils.logger import logger 
 from app.utils.auth import create_auth0_verifier
 from app.agents.tools import crm_tools
@@ -24,7 +25,8 @@ auth_verifier = create_auth0_verifier()
 auth_settings = None
 
 if auth_verifier:
-    auth_settings = FastMCP(
+    # CHANGE: Use AuthSettings class here, NOT FastMCP
+    auth_settings = AuthSettings(
         # The client (ChatGPT) calls this to start the flow
         url=f"https://{os.getenv('AUTH0_DOMAIN')}/authorize", 
         # The function that checks the token
