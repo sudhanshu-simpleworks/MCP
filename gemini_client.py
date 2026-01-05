@@ -1,34 +1,51 @@
-# --- START OF FILE c:\MCP\gemini_client.py ---
 import asyncio
 import os
+import sys
+from dotenv import load_dotenv
 import google.generativeai as genai
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
 
 # =============================================================================
-# CONFIGURATION
+# 1. PATH SETUP (Fixes the "Not Found" Error)
 # =============================================================================
-PYTHON_PATH = r"C:\Users\simpl\anaconda3\envs\mcp-env\python.exe"
-SCRIPT_PATH = r"c:\MCP\crm_server.py"
-ENV_VARS = {
-    "PYTHONPATH": "c:\\MCP",
-    "ROOT_PATH": "c:\\MCP",
-    "PATH": os.environ.get("PATH", "")
-}
+
+CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
+
+MCP_DIR = os.path.join(CURRENT_DIR, "MCP")
+ENV_PATH = os.path.join(MCP_DIR, ".env")
+load_dotenv(ENV_PATH, override=True)
 
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+if not GEMINI_API_KEY:
+    print(f"❌ Error: Could not find .env file at: {ENV_PATH}")
+    print("   Make sure the file exists and contains GEMINI_API_KEY")
+    sys.exit(1)
+
+# Ignore the deprecation warning for now; it works fine.
 genai.configure(api_key=GEMINI_API_KEY)
 
 # =============================================================================
-# HELPER: SCHEMA SANITIZER (The Fix)
+# 2. CLIENT CONFIGURATION & AUTH
 # =============================================================================
+PYTHON_PATH = os.getenv("PYTHON_PATH")
+SCRIPT_PATH = os.path.join(MCP_DIR, "crm_server.py")
+
+CLIENT_IDENTITY_KEY = "my_secure_dev_key_123"
+
+ENV_VARS = {
+    "PYTHONPATH": MCP_DIR,
+    "ROOT_PATH": MCP_DIR,
+    "PATH": os.environ.get("PATH", ""),
+    "MCP_SERVER_API_KEY": CLIENT_IDENTITY_KEY 
+}
+
+# =============================================================================
+# HELPER: SCHEMA SANITIZER
+# =============================================================================
+
 def clean_schema(schema):
-    """
-    Recursively fixes JSON Schema for Gemini:
-    1. Converts types to UPPERCASE (string -> STRING).
-    2. Handles Optional types (['string', 'null'] -> STRING).
-    3. Recursively cleans properties and items.
-    """
+    """Recursively fixes JSON Schema for Gemini."""
     if not isinstance(schema, dict):
         return schema
     
@@ -36,51 +53,30 @@ def clean_schema(schema):
     for key, value in schema.items():
         if key == "type":
             if isinstance(value, str):
-                # Fix: Gemini requires UPPERCASE types (e.g., "STRING")
                 cleaned[key] = value.upper()
             elif isinstance(value, list):
-                # Fix: Handle Pydantic optional types like ["string", "null"]
                 valid_types = [t for t in value if t != "null"]
-                if valid_types:
-                    cleaned[key] = valid_types[0].upper()
-                else:
-                    cleaned[key] = "OBJECT" # Fallback
-        
+                cleaned[key] = valid_types[0].upper() if valid_types else "OBJECT"
         elif key == "properties" and isinstance(value, dict):
             cleaned[key] = {k: clean_schema(v) for k, v in value.items()}
-        
-        elif key == "items" and isinstance(value, dict):
+        elif key in ["items", "parameters"] and isinstance(value, dict):
             cleaned[key] = clean_schema(value)
-            
-        elif key == "parameters" and isinstance(value, dict):
-            cleaned[key] = clean_schema(value)
-            
-        # Pass through other valid keys
         elif key in ["description", "required", "enum", "format"]:
             cleaned[key] = value
             
     return cleaned
 
 def convert_mcp_tool_to_gemini(mcp_tool):
-    """
-    Converts an MCP tool definition into a format Gemini understands.
-    """
-    # 1. Get the raw schema from MCP
-    raw_schema = mcp_tool.inputSchema
-    
-    # 2. Sanitize it for Gemini (Fix capitalization issues)
-    sanitized_schema = clean_schema(raw_schema)
-    
-    function_decl = {
+    return {
         "name": mcp_tool.name,
         "description": mcp_tool.description,
-        "parameters": sanitized_schema
+        "parameters": clean_schema(mcp_tool.inputSchema)
     }
-    return function_decl
 
 # =============================================================================
 # MAIN CLIENT LOOP
 # =============================================================================
+
 async def run_gemini_client():
     server_params = StdioServerParameters(
         command=PYTHON_PATH,
@@ -95,12 +91,10 @@ async def run_gemini_client():
             
             await session.initialize()
             
-            # List and Convert Tools
             mcp_tools = await session.list_tools()
             gemini_tools = [convert_mcp_tool_to_gemini(tool) for tool in mcp_tools.tools]
             print(f"🛠️  Loaded {len(gemini_tools)} tools from CRM Agent.")
 
-            # Initialize Gemini
             model = genai.GenerativeModel(
                 model_name='gemini-2.5-flash', 
                 tools=gemini_tools
@@ -119,7 +113,6 @@ async def run_gemini_client():
 
                     response = chat.send_message(user_input)
                     
-                    # Handle Function Calls
                     while response.parts and response.parts[0].function_call:
                         part = response.parts[0]
                         fc = part.function_call
@@ -129,10 +122,8 @@ async def run_gemini_client():
                         print(f"   > ⚙️  Gemini is calling tool: {tool_name}...")
                         
                         try:
-                            # Execute via MCP
                             mcp_result = await session.call_tool(tool_name, arguments=tool_args)
                             
-                            # Format Output
                             if not mcp_result.isError:
                                 tool_output = "\n".join([c.text for c in mcp_result.content if c.type == 'text'])
                             else:
@@ -140,7 +131,6 @@ async def run_gemini_client():
                         except Exception as e:
                             tool_output = f"Tool Execution Failed: {str(e)}"
 
-                        # Send result back to Gemini
                         response = chat.send_message({
                             "function_response": {
                                 "name": tool_name,
@@ -152,8 +142,6 @@ async def run_gemini_client():
                 
                 except Exception as e:
                     print(f"\n❌ Error encountered: {e}")
-                    # Only break if it's critical, otherwise let the loop continue
-                    # break 
 
 if __name__ == "__main__":
     asyncio.run(run_gemini_client())

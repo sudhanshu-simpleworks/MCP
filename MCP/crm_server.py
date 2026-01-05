@@ -3,14 +3,15 @@ import os
 from typing import Dict, List, Any
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
-project_root = current_dir
-sys.path.append(project_root)
+sys.path.append(current_dir)
 
 from dotenv import load_dotenv
-env_path = os.path.join(project_root, ".env")
+env_path = os.path.join(current_dir, ".env")
 load_dotenv(env_path, override=True) 
 
-from fastmcp import FastMCP
+from fastmcp import FastMCP, Context 
+from app.utils.auth import verify_access
+
 from app.utils.logger import logger 
 from app.agents.tools import crm_tools
 from app.agents.mcp_agent import MCPAgent
@@ -23,21 +24,16 @@ mcp = FastMCP("CRM Smart Agent")
 # =============================================================================
 
 @mcp.tool()
-def list_available_modules() -> List[str]:
-    """
-    Lists all available CRM modules (e.g., Leads, Opportunities, Cases) that can be queried.
-    Use this to understand what data types are available.
-    """
+def list_available_modules(ctx: Context) -> List[str]:
+    """Lists all available CRM modules."""
+    verify_access(ctx) # <--- THIS IS THE LOCK
     logger.info("Tool called: list_available_modules")
     return list(crm_tools.CRM_MODULES.keys())
 
 @mcp.tool()
-def get_module_schema(module_name: str) -> Dict[str, Any]:
-    """
-    Get the schema for a specific CRM module.
-    Returns available fields, filter keys, and enum values (e.g., valid Statuses).
-    Use this BEFORE querying to ensure you use correct field names.
-    """
+def get_module_schema(module_name: str, ctx: Context) -> Dict[str, Any]:
+    """Get the schema for a specific CRM module."""
+    verify_access(ctx)
     logger.info(f"Tool called: get_module_schema for {module_name}")
     module_config = crm_tools.CRM_MODULES.get(module_name)
     if not module_config:
@@ -56,24 +52,15 @@ def get_module_schema(module_name: str) -> Dict[str, Any]:
 @mcp.tool()
 def search_records(
     module: str, 
+    ctx: Context,
     filters: Dict[str, Any] = {}, 
     limit: int = 10,
     columns: List[str] = None
 ) -> Dict[str, Any]:
-    """
-    Search for records in a CRM module with specific filters.
-    
-    Args:
-        module: The module name (e.g., "Opportunities").
-        filters: Dictionary of filters. 
-                 Simple: {"sales_stage": "Closed Won"}
-                 Advanced: {"amount": {"operator": ">", "value": 1000}}
-                 Date: {"date_entered": {"operator": "last_7_days"}}
-        limit: Max records to return (default 10).
-        columns: Specific fields to retrieve (e.g., ["name", "amount"]).
-    """
+    """Search for records in a CRM module with specific filters."""
+    verify_access(ctx)
     try:
-        logger.info(f"Tool called: search_records module={module} filters={filters}")
+        logger.info(f"Tool called: search_records module={module}")
         result = crm_tools.query_crm_data(
             module=module,
             filters=filters,
@@ -86,10 +73,9 @@ def search_records(
         return {"error": str(e)}
 
 @mcp.tool()
-def get_record_details(module: str, record_id: str) -> Dict[str, Any]:
-    """
-    Get full details for a single record by ID.
-    """
+def get_record_details(module: str, record_id: str, ctx: Context) -> Dict[str, Any]:
+    """Get full details for a single record by ID."""
+    verify_access(ctx)
     try:
         logger.info(f"Tool called: get_record_details id={record_id}")
         filters = {"id": record_id}
@@ -108,17 +94,12 @@ def get_record_details(module: str, record_id: str) -> Dict[str, Any]:
 @mcp.tool()
 def calculate_metrics(
     records_data: List[Dict], 
+    ctx: Context,
     metric_type: str = "sum", 
     field: str = "amount"
 ) -> Dict[str, Any]:
-    """
-    Calculate totals or counts on a list of records.
-    
-    Args:
-        records_data: A list of record dictionaries (output from search_records).
-        metric_type: "sum" or "count".
-        field: The field to sum (e.g., "amount").
-    """
+    """Calculate totals or counts on a list of records."""
+    verify_access(ctx)
     try:
         logger.info(f"Tool called: calculate_metrics type={metric_type}")
         if metric_type == "sum":
@@ -135,17 +116,12 @@ def generate_chart(
     module: str,
     filters: Dict[str, Any],
     x_axis: str,
+    ctx: Context,
     y_axis: str = None,
     chart_type: str = "bar"
 ) -> str:
-    """
-    Generates a chart URL for the data.
-    
-    Args:
-        x_axis: The grouping field (e.g., "sales_stage").
-        y_axis: The metric field (e.g., "amount"). If None, counts records.
-        chart_type: "bar", "pie", "line".
-    """
+    """Generates a chart URL for the data."""
+    verify_access(ctx)
     try:
         logger.info(f"Tool called: generate_chart {chart_type}")
         data = crm_tools.query_crm_data(module=module, filters=filters, max_records=200)
@@ -166,13 +142,9 @@ def generate_chart(
 # =============================================================================
 
 @mcp.tool()
-async def natural_language_query(query: str) -> str:
-    """
-    Use this ONLY if the user provides a complex request that requires multi-step reasoning
-    or if you are unsure which specific tool to use.
-    Args:
-        query: The user's natural language input (e.g. "Analyze the top 5 deals").
-    """
+async def natural_language_query(query: str, ctx: Context) -> str:
+    """Use this ONLY if the user provides a complex request."""
+    verify_access(ctx)
     try:
         logger.info(f"Tool called: natural_language_query query='{query}'")
         message_handler = MessageHandler()
