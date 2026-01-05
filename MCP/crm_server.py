@@ -1,9 +1,7 @@
 import sys
 import os
-import json
-from typing import Optional, Dict, List, Any
+from typing import Dict, List, Any
 
-# --- PATH SETUP ---
 current_dir = os.path.dirname(os.path.abspath(__file__))
 project_root = current_dir
 sys.path.append(project_root)
@@ -12,33 +10,13 @@ from dotenv import load_dotenv
 env_path = os.path.join(project_root, ".env")
 load_dotenv(env_path, override=True) 
 
-from mcp.server.fastmcp import FastMCP, AuthSettings
+from fastmcp import FastMCP
 from app.utils.logger import logger 
-from app.utils.auth import create_auth0_verifier
 from app.agents.tools import crm_tools
 from app.agents.mcp_agent import MCPAgent
 from app.utils.util import MessageHandler
 
-# --- AUTH SETUP ---
-auth_verifier = create_auth0_verifier()
-auth_settings = None
-
-if auth_verifier:
-    auth_settings = AuthSettings(
-        # The client (ChatGPT) calls this to start the flow
-        url=f"https://{os.getenv('AUTH0_DOMAIN')}/authorize", 
-        # The function that checks the token
-        verifier=auth_verifier 
-    )
-    logger.info("🔒 Auth0 Security Enabled")
-else:
-    logger.warning("⚠️  Auth0 config missing. Server running in insecure mode.")
-
-# --- FAST MCP INIT ---
-mcp = FastMCP(
-    "CRM Smart Agent",
-    auth=auth_settings # Injecting the Auth middleware
-)
+mcp = FastMCP("CRM Smart Agent")
 
 # =============================================================================
 # 1. DISCOVERY TOOLS
@@ -47,7 +25,8 @@ mcp = FastMCP(
 @mcp.tool()
 def list_available_modules() -> List[str]:
     """
-    Lists all available CRM modules (e.g., Leads, Opportunities, Cases).
+    Lists all available CRM modules (e.g., Leads, Opportunities, Cases) that can be queried.
+    Use this to understand what data types are available.
     """
     logger.info("Tool called: list_available_modules")
     return list(crm_tools.CRM_MODULES.keys())
@@ -56,6 +35,8 @@ def list_available_modules() -> List[str]:
 def get_module_schema(module_name: str) -> Dict[str, Any]:
     """
     Get the schema for a specific CRM module.
+    Returns available fields, filter keys, and enum values (e.g., valid Statuses).
+    Use this BEFORE querying to ensure you use correct field names.
     """
     logger.info(f"Tool called: get_module_schema for {module_name}")
     module_config = crm_tools.CRM_MODULES.get(module_name)
@@ -81,6 +62,15 @@ def search_records(
 ) -> Dict[str, Any]:
     """
     Search for records in a CRM module with specific filters.
+    
+    Args:
+        module: The module name (e.g., "Opportunities").
+        filters: Dictionary of filters. 
+                 Simple: {"sales_stage": "Closed Won"}
+                 Advanced: {"amount": {"operator": ">", "value": 1000}}
+                 Date: {"date_entered": {"operator": "last_7_days"}}
+        limit: Max records to return (default 10).
+        columns: Specific fields to retrieve (e.g., ["name", "amount"]).
     """
     try:
         logger.info(f"Tool called: search_records module={module} filters={filters}")
@@ -123,6 +113,11 @@ def calculate_metrics(
 ) -> Dict[str, Any]:
     """
     Calculate totals or counts on a list of records.
+    
+    Args:
+        records_data: A list of record dictionaries (output from search_records).
+        metric_type: "sum" or "count".
+        field: The field to sum (e.g., "amount").
     """
     try:
         logger.info(f"Tool called: calculate_metrics type={metric_type}")
@@ -145,6 +140,11 @@ def generate_chart(
 ) -> str:
     """
     Generates a chart URL for the data.
+    
+    Args:
+        x_axis: The grouping field (e.g., "sales_stage").
+        y_axis: The metric field (e.g., "amount"). If None, counts records.
+        chart_type: "bar", "pie", "line".
     """
     try:
         logger.info(f"Tool called: generate_chart {chart_type}")
@@ -168,7 +168,10 @@ def generate_chart(
 @mcp.tool()
 async def natural_language_query(query: str) -> str:
     """
-    Use this ONLY if the user provides a complex request that requires multi-step reasoning.
+    Use this ONLY if the user provides a complex request that requires multi-step reasoning
+    or if you are unsure which specific tool to use.
+    Args:
+        query: The user's natural language input (e.g. "Analyze the top 5 deals").
     """
     try:
         logger.info(f"Tool called: natural_language_query query='{query}'")
