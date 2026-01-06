@@ -11,13 +11,46 @@ load_dotenv(env_path, override=True)
 
 from fastmcp import FastMCP, Context 
 from app.utils.auth import verify_access
-
+from app.agents.tools.crm_tools import user_token_ctx
 from app.utils.logger import logger 
 from app.agents.tools import crm_tools
 from app.agents.mcp_agent import MCPAgent
 from app.utils.util import MessageHandler
 
 mcp = FastMCP("CRM Smart Agent")
+
+def set_request_context(ctx: Context):
+    """
+    Extracts user CRM token and sets it for the tools to use.
+    Robustly handles cases where ctx.meta might be missing.
+    """
+    verify_access(ctx)
+    token = None
+    
+    meta = getattr(ctx, "meta", None)
+    
+    if meta and isinstance(meta, dict) and "headers" in meta:
+        headers = {k.lower(): v for k, v in meta["headers"].items()}
+        token = headers.get("x-crm-token")
+        if not token:
+            auth = headers.get("authorization")
+            if auth and auth.startswith("Bearer "):
+                token = auth.split(" ")[1]
+    
+    if not token:
+        token = os.environ.get("CRM_ACCESS_TOKEN")
+
+    if not token:
+        try:
+            if hasattr(crm_tools, "get_crm_token"): 
+                token = crm_tools.get_crm_token()
+        except:
+            pass
+
+    if not token:
+        raise ValueError("User Login Required: No CRM Access Token found.")
+
+    user_token_ctx.set(token)
 
 # =============================================================================
 # 1. DISCOVERY TOOLS
@@ -26,14 +59,14 @@ mcp = FastMCP("CRM Smart Agent")
 @mcp.tool()
 def list_available_modules(ctx: Context) -> List[str]:
     """Lists all available CRM modules."""
-    verify_access(ctx) # <--- THIS IS THE LOCK
+    set_request_context(ctx)
     logger.info("Tool called: list_available_modules")
     return list(crm_tools.CRM_MODULES.keys())
 
 @mcp.tool()
 def get_module_schema(module_name: str, ctx: Context) -> Dict[str, Any]:
     """Get the schema for a specific CRM module."""
-    verify_access(ctx)
+    set_request_context(ctx)
     logger.info(f"Tool called: get_module_schema for {module_name}")
     module_config = crm_tools.CRM_MODULES.get(module_name)
     if not module_config:
@@ -54,16 +87,30 @@ def search_records(
     module: str, 
     ctx: Context,
     filters: Dict[str, Any] = {}, 
+    start_date: str = None,
+    end_date: str = None,
     limit: int = 10,
     columns: List[str] = None
 ) -> Dict[str, Any]:
-    """Search for records in a CRM module with specific filters."""
-    verify_access(ctx)
+    """
+    Search for records in a CRM module.
+    
+    Args:
+        module: The module name (e.g. 'Opportunities', 'Leads')
+        filters: Dictionary of field filters (e.g. {'stage': 'Closed Won'})
+        start_date: Filter records created after this date (YYYY-MM-DD)
+        end_date: Filter records created before this date (YYYY-MM-DD)
+        limit: Max records to return (default 10)
+        columns: Specific columns to retrieve
+    """
+    set_request_context(ctx)
     try:
-        logger.info(f"Tool called: search_records module={module}")
+        logger.info(f"Tool called: search_records module={module} start={start_date} end={end_date}")
         result = crm_tools.query_crm_data(
             module=module,
             filters=filters,
+            start_date=start_date,
+            end_date=end_date,
             max_records=limit,
             fields_only=columns
         )
@@ -75,7 +122,7 @@ def search_records(
 @mcp.tool()
 def get_record_details(module: str, record_id: str, ctx: Context) -> Dict[str, Any]:
     """Get full details for a single record by ID."""
-    verify_access(ctx)
+    set_request_context(ctx)
     try:
         logger.info(f"Tool called: get_record_details id={record_id}")
         filters = {"id": record_id}
@@ -93,19 +140,42 @@ def get_record_details(module: str, record_id: str, ctx: Context) -> Dict[str, A
 
 @mcp.tool()
 def calculate_metrics(
-    records_data: List[Dict], 
     ctx: Context,
+    data_id: str = None,
+    records_data: List[Dict] = None, 
     metric_type: str = "sum", 
     field: str = "amount"
 ) -> Dict[str, Any]:
-    """Calculate totals or counts on a list of records."""
-    verify_access(ctx)
+    """
+    Calculate totals or counts.
+    
+    Args:
+        data_id: The ID string returned by search_records (Preferred for large datasets).
+        records_data: List of record dictionaries (Only use for small datasets).
+        metric_type: 'sum' or 'count'.
+        field: The field to sum (default 'amount').
+    """
+    set_request_context(ctx)
     try:
-        logger.info(f"Tool called: calculate_metrics type={metric_type}")
+        logger.info(f"Tool called: calculate_metrics type={metric_type} data_id={data_id}")
+        
+        data_source = None
+        if data_id:
+            data_source = data_id
+        elif records_data:
+            data_source = records_data
+        
+        if not data_source:
+             return {"error": "No data provided. Please provide either data_id or records_data."}
+
         if metric_type == "sum":
-            return crm_tools.calculate_total_amount(records_data)
+            return crm_tools.calculate_total_amount(data_source)
         elif metric_type == "count":
-            return {"count": len(records_data)}
+            if isinstance(data_source, list):
+                return {"count": len(data_source)}
+            res = crm_tools.calculate_total_amount(data_source)
+            return {"count": res.get("records_processed", 0)}
+            
         return {"error": "Invalid metric_type"}
     except Exception as e:
         logger.error(f"Error in calculate_metrics: {e}", exc_info=True)
@@ -121,7 +191,7 @@ def generate_chart(
     chart_type: str = "bar"
 ) -> str:
     """Generates a chart URL for the data."""
-    verify_access(ctx)
+    set_request_context(ctx)
     try:
         logger.info(f"Tool called: generate_chart {chart_type}")
         data = crm_tools.query_crm_data(module=module, filters=filters, max_records=200)
@@ -143,8 +213,8 @@ def generate_chart(
 
 @mcp.tool()
 async def natural_language_query(query: str, ctx: Context) -> str:
-    """Use this ONLY if the user provides a complex request."""
-    verify_access(ctx)
+    """Use this for complex queries involving dates, multiple steps, or reasoning."""
+    set_request_context(ctx)
     try:
         logger.info(f"Tool called: natural_language_query query='{query}'")
         message_handler = MessageHandler()
@@ -164,4 +234,4 @@ async def natural_language_query(query: str, ctx: Context) -> str:
         return f"Error: {str(e)}"
 
 if __name__ == "__main__":
-    mcp.run()
+    mcp.run(transport="sse")

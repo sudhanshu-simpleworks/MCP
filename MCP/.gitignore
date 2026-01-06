@@ -1,3 +1,7 @@
 .env
 logs/
 *.pyc
+__pycache__/
+agents/__pycache__/
+agents/tools/__pycache__/
+utils/__pycache__/

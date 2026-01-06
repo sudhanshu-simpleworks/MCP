@@ -4,6 +4,7 @@ import os
 import json
 import time
 import requests
+from contextvars import ContextVar
 import pandas as pd
 from datetime import datetime
 from app.utils.logger import logger
@@ -28,7 +29,7 @@ ROOT_PATH = Path(os.getenv("ROOT_PATH", "."))
 plot_dir = ROOT_PATH / "app" / "agents" / "tools" / "plots"
 plot_dir.mkdir(parents=True, exist_ok=True)
 
-_token_cache = {"access_token": None, "expires_at": 0}
+user_token_ctx: ContextVar[str] = ContextVar("user_token", default=None)
 _data_cache = {}
 CACHE_TTL = 3600
 
@@ -939,49 +940,49 @@ CRM_MODULES = {
 # ============================================================================
 
 
-def get_crm_token() -> str:
-    """
-    Get CRM authentication token with optimized caching.
-    Now caches with 30-minute buffer (was 5 min).
-    """
-    now = time.time()
+# def get_crm_token() -> str:
+#     """
+#     Get CRM authentication token with optimized caching.
+#     Now caches with 30-minute buffer.
+#     """
+#     now = time.time()
 
-    if _token_cache["access_token"] and now < _token_cache["expires_at"]:
-        return _token_cache["access_token"]
+#     if _token_cache["access_token"] and now < _token_cache["expires_at"]:
+#         return _token_cache["access_token"]
 
-    logger.info("Refreshing CRM access token")
-    payload = {
-        # "username": os.getenv("CRM_USERNAME"),
-        # "password": os.getenv("CRM_PASSWORD"),
-        "grant_type": os.getenv("CRM_GRANT_TYPE"),
-        "client_id": os.getenv("CRM_CLIENT_ID"),
-        "client_secret": os.getenv("CRM_CLIENT_SECRET"),
-    }
-    try:
-        response = requests.post(
-            url=os.getenv("CRM_LOGIN_ENDPOINT"),
-            headers={"Content-Type": "application/json"},
-            json=payload,
-            timeout=10,
-        )
-        response.raise_for_status()
-        data = response.json()
+#     logger.info("Refreshing CRM access token")
+#     payload = {
+#         # "username": os.getenv("CRM_USERNAME"),
+#         # "password": os.getenv("CRM_PASSWORD"),
+#         "grant_type": os.getenv("CRM_GRANT_TYPE"),
+#         "client_id": os.getenv("CRM_CLIENT_ID"),
+#         "client_secret": os.getenv("CRM_CLIENT_SECRET"),
+#     }
+#     try:
+#         response = requests.post(
+#             url=os.getenv("CRM_LOGIN_ENDPOINT"),
+#             headers={"Content-Type": "application/json"},
+#             json=payload,
+#             timeout=10,
+#         )
+#         response.raise_for_status()
+#         data = response.json()
 
-        access_token = data.get("access_token")
-        expires_in = data.get("expires_in", 3600)
+#         access_token = data.get("access_token")
+#         expires_in = data.get("expires_in", 3600)
 
-        _token_cache["access_token"] = access_token
-        _token_cache["expires_at"] = now + expires_in - 1800
+#         _token_cache["access_token"] = access_token
+#         _token_cache["expires_at"] = now + expires_in - 1800
 
-        logger.info("CRM token refreshed successfully (30 min cache)")
-        return access_token
+#         logger.info("CRM token refreshed successfully (30 min cache)")
+#         return access_token
 
-    except Exception as e:
-        logger.error(f"Failed to refresh CRM token: {e}", exc_info=True)
-        if _token_cache.get("access_token"):
-            logger.warning("Using cached token despite refresh failure")
-            return _token_cache["access_token"]
-        raise
+#     except Exception as e:
+#         logger.error(f"Failed to refresh CRM token: {e}", exc_info=True)
+#         if _token_cache.get("access_token"):
+#             logger.warning("Using cached token despite refresh failure")
+#             return _token_cache["access_token"]
+#         raise
 
 
 # ============================================================================
@@ -1567,10 +1568,18 @@ def query_crm_data(
     if start_date and not end_date:
         end_date = datetime.now().strftime("%m/%d/%Y")
 
+    access_token = user_token_ctx.get()
+    
+    if not access_token:
+        access_token = os.environ.get("CRM_ACCESS_TOKEN")
+        
+    if not access_token:
+        raise ValueError("Authentication Error: No CRM Access Token provided for this user.")
+
     base_url = f"{CRM_LIST_ENDPOINT.rstrip('/')}/{module_key}/views/list"
     headers = {
         "Content-Type": "application/json",
-        "Authorization": f"Bearer {get_crm_token()}",
+        "Authorization": f"Bearer {access_token}",
     }
 
     all_records = []
