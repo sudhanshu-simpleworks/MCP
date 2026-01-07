@@ -92,7 +92,7 @@ def search_records(
     filters: Dict[str, Any] = {}, 
     start_date: str = None,
     end_date: str = None,
-    limit: int = 10,
+    limit: int = 20,
     columns: List[str] = None
 ) -> Dict[str, Any]:
     set_request_context(ctx)

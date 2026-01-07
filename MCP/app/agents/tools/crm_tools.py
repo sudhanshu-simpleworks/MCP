@@ -101,10 +101,10 @@ def perform_user_login(username: str, password_plain: str) -> str:
     }
 
     try:
-        response = requests.post(login_url, data=payload, timeout=15, verify=False)
+        response = requests.post(login_url, data=payload, timeout=15)
         
         if response.status_code >= 400:
-            response = requests.post(login_url, json=payload, headers={"Content-Type": "application/json"}, timeout=15, verify=False)
+            response = requests.post(login_url, json=payload, headers={"Content-Type": "application/json"}, timeout=15)
 
         response.raise_for_status()
         data = response.json()
@@ -1800,7 +1800,7 @@ def query_crm_data(
                     "tool_call", f"API Request Page {current_page}", {"url": url}
                 )
 
-            response = requests.get(url, headers=headers, verify=False)
+            response = requests.get(url, headers=headers)
             if response.status_code == 401:
                 logger.warning("401 Unauthorized. Token rejected.")
                 global _system_token_cache
