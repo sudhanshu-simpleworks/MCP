@@ -12,7 +12,7 @@ def verify_access(ctx: Context) -> str:
     try:
         client_registry = json.loads(registry_str)
     except json.JSONDecodeError:
-        logger.error("❌ MCP_CLIENT_REGISTRY is not valid JSON.")
+        logger.error("MCP_CLIENT_REGISTRY is not valid JSON.")
         raise ValueError("Server Configuration Error")
 
     request_key = None
@@ -39,5 +39,5 @@ def verify_access(ctx: Context) -> str:
         logger.info(f"🔓 Authorized access: {client_name}")
         return client_name
 
-    logger.warning(f"🚫 Unauthorized access attempt using key: {request_key}")
+    logger.warning(f"Unauthorized access attempt using key: {request_key}")
     raise ValueError("Unauthorized: Invalid API Key")

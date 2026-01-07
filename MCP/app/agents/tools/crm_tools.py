@@ -1,3 +1,4 @@
+import base64
 import uuid
 import re
 import os
@@ -15,8 +16,133 @@ import plotly.express as px
 from typing import Optional, List, Dict, Any, Tuple
 from app.agents.tools.mcp_logger import mcp_logger
 import warnings
+
+from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+from cryptography.hazmat.primitives import padding, hashes
+from cryptography.hazmat.backends import default_backend
+from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
+
 warnings.filterwarnings("ignore")
 load_dotenv()
+
+
+# ============================================================================
+# AUTHENTICATION (30-min token cache)
+# ============================================================================
+
+user_token_ctx: ContextVar[str] = ContextVar("user_token", default=None)
+_user_session_cache = {
+    "username": None,
+    "access_token": None,
+    "expires_at": 0
+}
+
+def encrypt_password(plain_password: str) -> str:
+    """Encrypts password using the CRM specific AES/PBKDF2 logic."""
+    try:
+        passphrase = "373632764d5243706c706d6973"
+        iterations = 999
+        key_length = 32
+        salt_length = 32
+        iv_length = 16
+
+        salt = os.urandom(salt_length)
+        iv = os.urandom(iv_length)
+
+        kdf = PBKDF2HMAC(
+            algorithm=hashes.SHA512(),
+            length=key_length,
+            salt=salt,
+            iterations=iterations,
+            backend=default_backend()
+        )
+        derived_key = kdf.derive(passphrase.encode('utf-8'))
+
+        padder = padding.PKCS7(128).padder()
+        padded_data = padder.update(plain_password.encode('utf-8')) + padder.finalize()
+
+        cipher = Cipher(algorithms.AES(derived_key), modes.CBC(iv), backend=default_backend())
+        encryptor = cipher.encryptor()
+        ciphertext = encryptor.update(padded_data) + encryptor.finalize()
+
+        payload = {
+            "amtext": base64.b64encode(ciphertext).decode('utf-8'),
+            "slam_ltol": salt.hex(),
+            "iavmol": iv.hex()
+        }
+        return base64.b64encode(json.dumps(payload).encode('utf-8')).decode('utf-8')
+    except Exception as e:
+        logger.error(f"Encryption Error: {e}")
+        raise ValueError("Password encryption failed internal check.")
+
+def perform_user_login(username: str, password_plain: str) -> str:
+    """
+    Logs in to CRM, gets token, and stores it in Server Memory.
+    """
+    global _user_session_cache
+    
+    login_url = os.getenv("CRM_LOGIN_ENDPOINT")
+    client_id = os.getenv("CRM_USER_CLIENT_ID")
+    client_secret = os.getenv("CRM_USER_CLIENT_SECRET")
+
+    if not all([login_url, client_id, client_secret]):
+        raise ValueError("Missing CRM_USER_CLIENT_ID or CRM_USER_CLIENT_SECRET in .env")
+
+    logger.info(f"Attempting login for user: {username}")
+
+    encrypted_password = encrypt_password(password_plain)
+
+    payload = {
+        "grant_type": "password",
+        "client_id": client_id,
+        "client_secret": client_secret,
+        "username": username,
+        "password": encrypted_password
+    }
+
+    try:
+        response = requests.post(login_url, data=payload, timeout=15, verify=False)
+        
+        if response.status_code >= 400:
+            response = requests.post(login_url, json=payload, headers={"Content-Type": "application/json"}, timeout=15, verify=False)
+
+        response.raise_for_status()
+        data = response.json()
+        token = data.get("access_token")
+        expires_in = data.get("expires_in", 3600)
+        
+        if not token:
+            raise ValueError("CRM response missing access_token")
+
+        _user_session_cache["username"] = username
+        _user_session_cache["access_token"] = token
+        _user_session_cache["expires_at"] = time.time() + expires_in - 300
+        
+        logger.info(f"Login Success. Token cached for user: {username}")
+        return token
+
+    except Exception as e:
+        logger.error(f"Login Failed: {e}")
+        raise ValueError(f"Login failed: {str(e)}")
+
+def resolve_auth_token() -> str:
+    """
+    1. Check Headers (ContextVar)
+    2. Check Internal Server Memory (Session Cache)
+    """
+    token = user_token_ctx.get()
+    if token and len(token.strip()) > 10:
+        return token
+
+    if _user_session_cache["access_token"]:
+        if time.time() < _user_session_cache["expires_at"]:
+             return _user_session_cache["access_token"]
+        else:
+             _user_session_cache["access_token"] = None
+             logger.warning("Cached session expired.")
+
+    logger.error("Security Error: No active session found.")
+    raise ValueError("You are not logged in. Please use the 'login_to_crm' tool first with your username and password.")
 
 # ============================================================================
 # CONFIGURATION
@@ -28,8 +154,6 @@ CRM_LIST_ENDPOINT = os.getenv("CRM_LIST_ENDPOINT")
 ROOT_PATH = Path(os.getenv("ROOT_PATH", "."))
 plot_dir = ROOT_PATH / "app" / "agents" / "tools" / "plots"
 plot_dir.mkdir(parents=True, exist_ok=True)
-
-user_token_ctx: ContextVar[str] = ContextVar("user_token", default=None)
 _data_cache = {}
 CACHE_TTL = 3600
 
@@ -936,56 +1060,6 @@ CRM_MODULES = {
 }
 
 # ============================================================================
-# AUTHENTICATION (30-min token cache)
-# ============================================================================
-
-
-# def get_crm_token() -> str:
-#     """
-#     Get CRM authentication token with optimized caching.
-#     Now caches with 30-minute buffer.
-#     """
-#     now = time.time()
-
-#     if _token_cache["access_token"] and now < _token_cache["expires_at"]:
-#         return _token_cache["access_token"]
-
-#     logger.info("Refreshing CRM access token")
-#     payload = {
-#         # "username": os.getenv("CRM_USERNAME"),
-#         # "password": os.getenv("CRM_PASSWORD"),
-#         "grant_type": os.getenv("CRM_GRANT_TYPE"),
-#         "client_id": os.getenv("CRM_CLIENT_ID"),
-#         "client_secret": os.getenv("CRM_CLIENT_SECRET"),
-#     }
-#     try:
-#         response = requests.post(
-#             url=os.getenv("CRM_LOGIN_ENDPOINT"),
-#             headers={"Content-Type": "application/json"},
-#             json=payload,
-#             timeout=10,
-#         )
-#         response.raise_for_status()
-#         data = response.json()
-
-#         access_token = data.get("access_token")
-#         expires_in = data.get("expires_in", 3600)
-
-#         _token_cache["access_token"] = access_token
-#         _token_cache["expires_at"] = now + expires_in - 1800
-
-#         logger.info("CRM token refreshed successfully (30 min cache)")
-#         return access_token
-
-#     except Exception as e:
-#         logger.error(f"Failed to refresh CRM token: {e}", exc_info=True)
-#         if _token_cache.get("access_token"):
-#             logger.warning("Using cached token despite refresh failure")
-#             return _token_cache["access_token"]
-#         raise
-
-
-# ============================================================================
 # HELPER FUNCTIONS
 # ============================================================================
 
@@ -1010,26 +1084,15 @@ def get_available_modules() -> Dict[str, Any]:
 def _resolve_module(module: str) -> Optional[str]:
     """Resolve module name from aliases."""
     module_lower = module.lower()
-
     for key, config in CRM_MODULES.items():
-        if key.lower() == module_lower or module_lower in [
-            a.lower() for a in config.get("aliases", [])
-        ]:
+        if key.lower() == module_lower or module_lower in [a.lower() for a in config.get("aliases", [])]:
             return key
-
-    return None
+    return module
 
 
 def _cache_data(data: List[Dict]) -> str:
-    """Cache large dataset and return data_id."""
     data_id = f"crm_data_{uuid.uuid4().hex[:8]}"
     _data_cache[data_id] = {"data": data, "expires_at": time.time() + CACHE_TTL}
-
-    current_time = time.time()
-    expired = [k for k, v in _data_cache.items() if current_time > v["expires_at"]]
-    for k in expired:
-        del _data_cache[k]
-
     return data_id
 
 
@@ -1563,15 +1626,10 @@ def query_crm_data(
     )
 
     module_key = _resolve_module(module)
-    if not module_key:
-        raise ValueError(f"Unknown module {module}")
     if start_date and not end_date:
         end_date = datetime.now().strftime("%m/%d/%Y")
 
-    access_token = user_token_ctx.get()
-    
-    if not access_token:
-        access_token = os.environ.get("CRM_ACCESS_TOKEN")
+    access_token = resolve_auth_token()
         
     if not access_token:
         raise ValueError("Authentication Error: No CRM Access Token provided for this user.")
@@ -1742,7 +1800,14 @@ def query_crm_data(
                     "tool_call", f"API Request Page {current_page}", {"url": url}
                 )
 
-            response = requests.get(url, headers=headers)
+            response = requests.get(url, headers=headers, verify=False)
+            if response.status_code == 401:
+                logger.warning("401 Unauthorized. Token rejected.")
+                global _system_token_cache
+                if _system_token_cache["access_token"] == access_token:
+                    _system_token_cache["access_token"] = None
+                raise ValueError("CRM Authentication Failed. Please retry.")
+
             response.raise_for_status()
 
             page_data = (
@@ -1951,7 +2016,7 @@ def _plot_crm_data(
 
         if len(df) > limit:
             warning_msg = (
-                f"⚠️ **Note:** Display limit reached. Showing top {limit} of {len(df)} categories. "
+                f"**Note:** Display limit reached. Showing top {limit} of {len(df)} categories. "
                 "The chart focuses on the most significant data points."
             )
             logger.warning(

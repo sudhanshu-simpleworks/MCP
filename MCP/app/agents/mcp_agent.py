@@ -325,7 +325,7 @@ class MCPAgent:
                     continue
 
                 self.message_handler.add_message(
-                    f"🔎 Resolving User ID for '{name_query}'..."
+                    f"Resolving User ID for '{name_query}'..."
                 )
                 target_id = None
                 search_fields = ["name", "user_name", "first_name", "last_name"]
@@ -373,13 +373,13 @@ class MCPAgent:
                 if target_id:
                     filters[target_api_key] = target_id
                     params["filter_display_values"][target_api_key] = name_query
-                    self.message_handler.add_message(f"✅ Resolved to ID: {target_id}")
+                    self.message_handler.add_message(f"Resolved to ID: {target_id}")
                 else:
                     original_val = str(name_query).strip()
                     if " " in original_val:
                         first_part = original_val.split(" ")[0]
                         self.message_handler.add_message(
-                            f"⚠️ User resolution failed. Will search for both: '{original_val}' AND '{first_part}'"
+                            f"User resolution failed. Will search for both: '{original_val}' AND '{first_part}'"
                         )
                         filters[filter_key] = [original_val, first_part]
                         params["_merge_fallback_results"] = True
@@ -420,7 +420,7 @@ class MCPAgent:
             )
 
         self.message_handler.add_message(
-            f"🔄 Splitting query for {len(multi_values)} values in '{multi_value_key}'..."
+            f"Splitting query for {len(multi_values)} values in '{multi_value_key}'..."
         )
 
         tasks = []
@@ -475,7 +475,7 @@ class MCPAgent:
         - Strictly preserves hyperlinks.
         """
         if task_result.get("type") == "error":
-            return f"⚠️ **Error:** {task_result.get('message')}"
+            return f"**Error:** {task_result.get('message')}"
 
         module = task_config.get("module")
         fetched_count = task_result.get("count", 0)
@@ -646,7 +646,7 @@ class MCPAgent:
             response = await self.llm.acomplete(prompt, temperature=0.0)
             duration = (datetime.now() - start_time).total_seconds()
             logger.info(
-                f"⏱️ LLM Full Response Generation: {duration:.4f}s | Records processed: {len(records)}"
+                f"LLM Full Response Generation: {duration:.4f}s | Records processed: {len(records)}"
             )
             return str(response).strip()
         except Exception as e:
@@ -654,7 +654,7 @@ class MCPAgent:
             return f"### {module}\nFound **{fetched_count}** records."
 
     async def _execute_sum_workflow(self, params: Dict[str, Any]) -> Dict[str, Any]:
-        self.message_handler.add_message(f"🔍 Querying {params['module']}...")
+        self.message_handler.add_message(f"Querying {params['module']}...")
         result = await self._fetch_data_handling_multi_values(
             module=params["module"],
             filters=params.get("filters", {}),
@@ -663,7 +663,7 @@ class MCPAgent:
             iterate_pages=True,
         )
         count = result["count"]
-        self.message_handler.add_message(f"✅ Found {count:,} records")
+        self.message_handler.add_message(f" Found {count:,} records")
 
         base_resp = {"type": "sum", "module": params["module"], "count": count}
         base_resp["records"] = result.get("records", [])[:20]
@@ -672,7 +672,7 @@ class MCPAgent:
             base_resp["summary"] = f"No records found for {params['module']}."
             return base_resp
 
-        self.message_handler.add_message("💰 Calculating totals...")
+        self.message_handler.add_message("Calculating totals...")
         total_result = await asyncio.to_thread(
             crm_tools.calculate_total_amount, data_id_or_records=result
         )
@@ -692,7 +692,7 @@ class MCPAgent:
             iterate_pages=True,
         )
         count = result["count"]
-        self.message_handler.add_message(f"✅ Found {count:,} records")
+        self.message_handler.add_message(f"Found {count:,} records")
         return {
             "type": "count",
             "module": params["module"],
@@ -738,7 +738,7 @@ class MCPAgent:
 
         if split_key:
             self.message_handler.add_message(
-                f"🔄 Generating separate reports for: {', '.join(map(str, split_values))}..."
+                f"Generating separate reports for: {', '.join(map(str, split_values))}..."
             )
             sub_results = []
 
@@ -830,7 +830,7 @@ class MCPAgent:
             }
 
         self.message_handler.add_message(
-            f"🔍 Querying {module_name} (Page {page_num})..."
+            f"Querying {module_name} (Page {page_num})..."
         )
         result = await asyncio.to_thread(
             crm_tools.query_crm_data,
@@ -851,7 +851,7 @@ class MCPAgent:
         if meta_total is not None:
             final_total = meta_total
         elif should_verify_total:
-            self.message_handler.add_message("📊 Verifying total count...")
+            self.message_handler.add_message("Verifying total count...")
             try:
                 count_result = await asyncio.to_thread(
                     crm_tools.query_crm_data,
@@ -940,7 +940,7 @@ class MCPAgent:
         return base_resp
 
     async def _execute_chart_workflow(self, params: Dict[str, Any]) -> Dict[str, Any]:
-        self.message_handler.add_message(f"🔍 Querying {params['module']}...")
+        self.message_handler.add_message(f"Querying {params['module']}...")
         result = await self._fetch_data_handling_multi_values(
             module=params["module"],
             filters=params.get("filters", {}),
@@ -954,7 +954,7 @@ class MCPAgent:
             base_resp["message"] = f"No data found for {params['module']}."
             return base_resp
 
-        self.message_handler.add_message(f"✅ Found {result['count']:,} records")
+        self.message_handler.add_message(f"Found {result['count']:,} records")
 
         chart_config = params.get("chart_config", {})
         x_col = chart_config.get("x_col")
@@ -968,7 +968,7 @@ class MCPAgent:
         if y_col and y_col.lower() in mappings:
             y_col = mappings[y_col.lower()]
 
-        self.message_handler.add_message(f"📊 Generating chart by '{x_col}'...")
+        self.message_handler.add_message(f"Generating chart by '{x_col}'...")
 
         try:
             chart_result = await asyncio.to_thread(
@@ -993,14 +993,14 @@ class MCPAgent:
     def _format_sum_response(self, total_result: Dict, count: int, params: Dict) -> str:
         formatted_total = total_result["formatted_total"]
 
-        lines = ["### 💵 Financial Summary", ""]
-        lines.append(f"### 💰 Total Amount: **{formatted_total}**")
+        lines = ["### Financial Summary", ""]
+        lines.append(f"### Total Amount: **{formatted_total}**")
         lines.append(f"**Total Records:** {count:,}")
 
         records_without = total_result.get("records_without_amount", 0)
         if records_without > 0:
             lines.append(
-                f"> ⚠️ **Note:** {records_without} records were excluded from calculation (missing amount data)."
+                f"> **Note:** {records_without} records were excluded from calculation (missing amount data)."
             )
 
         return "\n".join(lines)
@@ -1075,7 +1075,7 @@ class MCPAgent:
                     }
 
                     self.message_handler.add_message(
-                        f"🧠 Generating full response for: {sub['label']}..."
+                        f"Generating full response for: {sub['label']}..."
                     )
                     formatted_part = await self._format_response_with_llm(
                         user_query, sub_config, sub_result, chat_history
@@ -1083,10 +1083,10 @@ class MCPAgent:
                     final_content += f"{formatted_part}\n"
 
                     if sub.get("crm_link") and sub.get("count", 0) >= 20:
-                        final_content += f"\n🔗 **[View in CRM]({sub['crm_link']})**\n"
+                        final_content += f"\n **[View in CRM]({sub['crm_link']})**\n"
                     final_content += "\n---\n"
             else:
-                self.message_handler.add_message("🧠 Generating full response...")
+                self.message_handler.add_message("Generating full response...")
                 formatted_part = await self._format_response_with_llm(
                     user_query, task_config, result, chat_history
                 )
@@ -1150,7 +1150,7 @@ class MCPAgent:
             else:
                 if len(tasks) > 1:
                     self.message_handler.add_message(
-                        f"🚀 Detected {len(tasks)} requests. Executing in parallel..."
+                        f"Detected {len(tasks)} requests. Executing in parallel..."
                     )
                 results = await asyncio.gather(
                     *(
